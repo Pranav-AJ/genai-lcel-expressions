@@ -15,52 +15,74 @@ Use LangChain's language model to process the prompt and generate a response.
 Implement an output parser to extract structured results from the model's response.
 ### PROGRAM:
 ```py
-from langchain.prompts import PromptTemplate
-from langchain.llms import OpenAI
-from langchain.output_parsers import StructuredOutputParser, ResponseSchema
-
-# Define the prompt template with two parameters
-prompt = PromptTemplate(
-    input_variables=["topic", "context"],
-    template="Write a summary about {topic} based on the following context: {context}"
+from langchain.embeddings import OpenAIEmbeddings
+from langchain.vectorstores import DocArrayInMemorySearch
+vectorstore = DocArrayInMemorySearch.from_texts(
+    ["harrison worked at kensho", "bears like to eat honey"],
+    embedding=OpenAIEmbeddings()
 )
+retriever = vectorstore.as_retriever()
+retriever.get_relevant_documents("where did harrison work?")
+template = """Answer the question based only on the following context:
+{context}
 
-# Initialize the language model
-llm = OpenAI(model="text-davinci-003", temperature=0.7)
+Question: {question}
+"""
+prompt = ChatPromptTemplate.from_template(template)
+from langchain.schema.runnable import RunnableMapchain = RunnableMap({
+    "context": lambda x: retriever.get_relevant_documents(x["question"]),
+    "question": lambda x: x["question"]
+}) | prompt | model | output_parser
 
-# Define the response schema for the output parser
-response_schemas = [
-    ResponseSchema(name="summary", description="A concise summary of the topic"),
-    ResponseSchema(name="key_points", description="Main points covered in the summary")
-]
+inputs = RunnableMap({
+    "context": lambda x: retriever.get_relevant_documents(x["question"]),
+    "question": lambda x: x["question"]
+})
+functions = [
+    {
+      "name": "weather_search",
+      "description": "Search for weather given an airport code",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "airport_code": {
+            "type": "string",
+            "description": "The airport code to get the weather for"
+          },
+        },
+        "required": ["airport_code"]
+      }
+    },
+        {
+      "name": "sports_search",
+      "description": "Search for news of recent sport events",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "team_name": {
+            "type": "string",
+            "description": "The sports team to search for"
+          },
+        },
+        "required": ["team_name"]
+      }
+    }
+  ]
 
-output_parser = StructuredOutputParser.from_response_schemas(response_schemas)
+prompt = ChatPromptTemplate.from_template(
+    "Tell me a short joke about {topic}"
+)
+model = ChatOpenAI()
+output_parser = StrOutputParser()
 
-# Example function to evaluate the LCEL expression
-def evaluate_expression(topic, context):
-    # Generate the prompt with input parameters
-    formatted_prompt = prompt.format(topic=topic, context=context)
-    
-    # Get the response from the LLM
-    raw_output = llm(formatted_prompt)
-    
-    # Parse the output into a structured format
-    parsed_output = output_parser.parse(raw_output)
-    
-    return parsed_output
-
-# Example usage
-if __name__ == "__main__":
-    topic = "Artificial Intelligence"
-    context = """Artificial Intelligence is a field of study focusing on creating machines
-               capable of mimicking human intelligence.It includes machine learning, robotics,
-                and natural language processing."""
-    result = evaluate_expression(topic, context)
-    print("LCEL Expression Output:")
-    print(result)
+chain = prompt | model | output_parser
+chain.invoke({"topic": "bears"})
+chain.batch([{"topic": "bears"}, {"topic": "frogs"}])
+response = await chain.ainvoke({"topic": "bears"})
+response
 ```
 ### OUTPUT:
-![image](https://github.com/user-attachments/assets/faf5e33a-04fe-46e1-8f66-06381e156bc6)
+![image](https://github.com/user-attachments/assets/a5fb0f4f-78e6-4fff-bf51-dc68d72350e3)
 
 ### RESULT:
 Hence,the program to design and implement a LangChain Expression Language (LCEL) expression that utilizes at least two prompt parameters and three key components (prompt, model, and output parser), and to evaluate its functionality by analyzing relevant examples of its application in real-world scenarios is written and successfully executed.
